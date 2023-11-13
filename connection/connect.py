@@ -16,18 +16,18 @@ spark = SparkSession.builder.config(conf=conf).getOrCreate()
 # Define the PostgreSQL database connection properties
 db_properties = {
     "driver": "org.postgresql.Driver",
-    "url": "jdbc:postgresql://postgresfib.fib.upc.edu:6433/AMOS?sslmode=require",  # Replace with your database URL
+    "url": "jdbc:postgresql://postgresfib.fib.upc.edu:6433/DW?sslmode=require",  # Replace with your database URL
     "user": "marc.camps.garreta",  # Replace with your database username
     "password": "DB180503"  # Replace with your database password
 }
 
 # Read data from the PostgreSQL database into a DataFrame
 data = spark.read.jdbc(url=db_properties["url"],
-                       table="public.operationinterruption",
+                       table="public.aircraftutilization",
                        properties=db_properties)
 
 # Data obtained from a database can be manipulated using SparkSQL’s operations
-df = data.select("flightid", "airport", "duration")
+df = data.select("aircraftid", "flighthours", "delayedminutes")
 df.show(30)
 
 # Stop the Spark session when you’re done
