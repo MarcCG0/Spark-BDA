@@ -6,6 +6,7 @@ from pyspark.sql import DataFrame
 import datetime
 import re
 from typing import List, Optional
+from ..connection.connect import retrieve_dw_table
 
 
 data_dir: str = '../data'
