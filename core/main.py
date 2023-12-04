@@ -1,6 +1,7 @@
 from pyspark.sql import SparkSession, DataFrame
 from pyspark import SparkConf
-from pyspark.sql.functions import input_file_name, regexp_extract, to_date, mean
+from pyspark.sql.functions import input_file_name, regexp_extract, to_date, mean, datediff, when, col
+
 #from  ..connection.connect import retrieve_dw_table
 
 
@@ -59,6 +60,8 @@ def main():
         (sensor_data.date == aircraft_utilization.timeid) & (sensor_data.aircraftid == aircraft_utilization.aircraftid),
         how='inner'
     )
+    joined_df = joined_df.drop(aircraft_utilization.aircraftid)
+
     # joined_df = joined_df.drop(aircraft_utilization.timeid)
     joined_df.show()
 
@@ -66,6 +69,47 @@ def main():
     operation_interruption = operation_interruption.withColumn("starttime", to_date(operation_interruption.starttime))
     operation_interruption = operation_interruption.filter(operation_interruption.subsystem == 3453)
     operation_interruption.show()
+
+    # Convert string dates to date type for comparison
+    joined_df = joined_df.withColumn("date", to_date(col("date"), 'yyyy-MM-dd'))
+    operation_interruption = operation_interruption.withColumn("starttime", to_date(col("starttime"), 'yyyy-MM-dd'))
+
+    # Perform a simpler join first for diagnostic purposes
+    result_df = joined_df.join( #FIXME: check why this join is always giving all values null (why none of the aircraftid's are in operation interruption)
+        operation_interruption,
+        joined_df.aircraftid == operation_interruption.aircraftregistration,
+        how='left'
+    )
+
+    # Add a column to show the date difference
+    result_df = result_df.withColumn(
+        "date_diff",
+        datediff(operation_interruption.starttime, joined_df.date)
+    )
+
+    # Show a few rows for inspection
+    result_df.select("aircraftid", "aircraftregistration", "date", "starttime", "date_diff").show()
+
+    # Then proceed with the original logic
+    result_df = result_df.withColumn(
+        "operation_interruption",
+        when(
+            (col("aircraftregistration").isNotNull()) &
+            (col("date_diff") >= 0) &
+            (col("date_diff") <= 7),
+            True
+        ).otherwise(False)
+    )
+
+    # You might want to show the result to check if it's working as expected
+    result_df.show()
+
+    result_df.coalesce(1).write.csv("../results/data-pipeline.csv", header=True, mode="overwrite")
+
+
+    
+
+
 
 
 
