@@ -3,13 +3,16 @@ import sys
 from pyspark.sql import SparkSession, DataFrame
 from pyspark import SparkConf
 
-def retrieve_dw_table(session : SparkSession,table_name:str, columns: list[str], db_name: str) -> DataFrame: 
-    # Configure the filepath for the PostgreSQL driver
-    POSTGRESQL_DRIVER_PATH = "../postgresql-42.2.8.jar"  # Replace with your PostgreSQL driver path
+POSTGRESQL_DRIVER_PATH = "../postgresql-42.2.8.jar" 
 
+def create_session() -> SparkSession: 
     
+    conf = SparkConf().set("spark.master", "local").set("spark.app.name", "DBALab").set("spark.jars", POSTGRESQL_DRIVER_PATH)
+    spark = SparkSession.builder.config(conf=conf).getOrCreate()
+    return spark
 
-    # Define the PostgreSQL database connection properties
+def retrieve_dw_table(db_name: str, table_instance: str, session : SparkSession,table_name:str, columns: list[str]) -> DataFrame: 
+
     db_properties = {
         "driver": "org.postgresql.Driver",
         "url": f"jdbc:postgresql://postgresfib.fib.upc.edu:6433/{db_name}?sslmode=require",  # Replace with your database URL
@@ -17,20 +20,9 @@ def retrieve_dw_table(session : SparkSession,table_name:str, columns: list[str],
         "password": "DB180503"  # Replace with your database password
     }
 
-    # Read data from the PostgreSQL database into a DataFrame
     data = session.read.jdbc(url=db_properties["url"],
-                        table="public." + table_name,
+                        table= table_instance+"." + table_name,
                         properties=db_properties)
 
-    # Data obtained from a database can be manipulated using SparkSQL’s operations
     df = data.select(columns)
     return df
-
-
-def main(): 
-    df = retrieve_dw_table("aircraftutilization", ["aircraftid", "flighthours", "delayedminutes"])
-    df.show()
-
-
-if __name__ == "__main__":
-    main()
