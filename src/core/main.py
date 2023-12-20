@@ -65,7 +65,6 @@ def main():
         training_data, best_model, best_model_name, sensor_data = compute_whole_process(spark, operation_interruption, aircraft_utilization) 
 
     tuple_to_predict = prepare_data_before_prediction(sensor_data, aircraft_utilization, aircraftid, day)
-    tuple_to_predict.show()
     predictions = best_model.transform(tuple_to_predict)
     prediction_value = predictions.select('prediction').collect()[0][0]
 
@@ -77,3 +76,4 @@ def main():
 if __name__ == "__main__":
     main()
 
+#TODO: check if columns are always necessary in all the flow of the code (maybe deleting some columns can optimize code, decide whether we use test data or not, ...)
