@@ -2,10 +2,10 @@ from pyspark.sql import SparkSession, DataFrame
 from pyspark import SparkConf
 import os, sys
 
-HADOOP_HOME = "/Codeskeleton/resources/hadoop_home"
+HADOOP_HOME = "./Codeskeleton/resources/hadoop_home"
 PYSPARK_PYTHON = "python3.9"
 PYSPARK_DRIVER_PYTHON = "python3.9"
-POSTGRESQL_DRIVER_PATH = "/Codeskeleton/resources/postgresql-42.2.8.jar"
+POSTGRESQL_DRIVER_PATH = "./Codeskeleton/resources/postgresql-42.2.8.jar"
 
 def create_session() -> SparkSession: 
     """Initialize the SparkSession
