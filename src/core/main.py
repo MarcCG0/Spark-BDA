@@ -1,6 +1,6 @@
-from src.connection.connect import create_session
-from src.core.data_management import retrieve_needed_tables, get_sensor_data, get_training_data, prepare_data_before_prediction
-from src.core.train_models import train
+from connect import create_session
+from data_management import retrieve_needed_tables, get_sensor_data, get_training_data, prepare_data_before_prediction
+from train_models import train
 from pyspark.ml import PipelineModel
 
 from typing import Tuple

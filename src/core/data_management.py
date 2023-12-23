@@ -1,7 +1,7 @@
 
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import input_file_name, regexp_extract, to_date, mean, datediff, col
-from src.connection.connect import retrieve_dw_table
+from connect import retrieve_dw_table
 
 from typing import Optional
 
