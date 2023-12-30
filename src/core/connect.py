@@ -1,6 +1,7 @@
 from pyspark.sql import SparkSession, DataFrame
 from pyspark import SparkConf
-import os, sys
+import os
+import sys
 
 HADOOP_HOME = "./Codeskeleton/resources/hadoop_home"
 PYSPARK_PYTHON = "python3.9"
