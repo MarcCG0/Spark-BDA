@@ -114,7 +114,7 @@ def get_training_data(sensor_data: DataFrame, operation_interruption: DataFrame,
 # Data Management Main function #
 #################################
 
-def data_management_pipeline(spark: SparkSession, username: str, password: str) -> Tuple[DataFrame, DataFrame]:
+def data_management_pipeline(spark: SparkSession, username: str, password: str):
     """Compute all the data management pipeline."""
     
     # Read csv files
@@ -131,6 +131,4 @@ def data_management_pipeline(spark: SparkSession, username: str, password: str) 
     output_path = "../results/training_data.csv"
     training_data.coalesce(1).write.csv(output_path, header=True, mode="overwrite")
 
-
-    return aircraft_utilization, sensor_data
     

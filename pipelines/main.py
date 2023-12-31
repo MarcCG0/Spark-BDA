@@ -4,7 +4,6 @@ from runtime_classifier_pipeline import runtime_classifier_pipeline
 
 from pyspark.sql import DataFrame, SparkSession
 from pyspark import SparkConf
-import argparse
 import os
 import sys
 
@@ -32,29 +31,73 @@ def create_session() -> SparkSession:
 
 
 def main():
-
+    
+    print("Enter your user credentials")
+    username = input("username: ")
+    password = input("password: ")
     # Create spark session 
     spark: SparkSession = create_session()
 
+    data_management_executed = False
+    data_analysis_executed = False
+
     print("Choose the pipeline you want to execute:\n"
-         " - 'Data Management' for Data Management Pipeline\n"
-         " - 'Data Analysis' for Data Analysis Pipeline\n"
-         " - 'Run-Time Classifier' for Run-Time Classifier Pipeline\n"
-         " - 'All pipelines' for the whole process")
+         " - Enter 'Data Management' for Data Management Pipeline\n"
+         " - Enter 'Data Analysis' for Data Analysis Pipeline\n"
+         " - Enter 'Run-Time Classifier' for Run-Time Classifier Pipeline\n"
+         " - Enter 'All pipelines' for the whole process\n"
+         "Enter your choice: ")
 
+    execution = input()
     
+    if execution == "Data Management":
 
-    print("Generating training data and modeling" if not only_predict else "Loading training data")
+        print("Generating training data...")
+        data_management_pipeline(spark, username, password)
+        data_management_executed = True
+        
+    elif execution == "Data Analysis":
 
-    # Execute Data Management Pipeline
-    aircraft_utilization, sensor_data = data_management_pipeline(spark, username, password)
+        if not data_management_executed:
+            raise ValueError("Data Analysis pipeline requires Data Management pipeline to be executed first")
+        
+        print("Training the models...")
+        data_analysis_pipeline(spark)
+        data_analysis_executed = True
 
-    # Execute Data Analysis Pipeline
-    data_analysis_pipeline(spark)
+    elif execution == "Run-Time Classifier":
 
-    # executar run-time classifier
-    runtime_classifier_pipeline(spark, aircraftid, date, username, password)
+        if not data_management_executed or not data_analysis_executed:
+            raise ValueError("Run-Time Classifier pipeline requires Data Management and Data Analysis pipelines to be executed first")
+         
+        print("Enter de new record to make the prediction")
+        aircraftid = input("aircraftid: ")
+        date = input("date: ")
+    
+        print("Generating prediction...")
+        runtime_classifier_pipeline(spark, aircraftid, date, username, password)
 
+    elif execution == "All pipelines":
+
+        print("Enter de new record to make the prediction")
+        aircraftid = input("aircraftid: ")
+        date = input("date: ")
+
+        print("Generating training data...")
+        data_management_pipeline(spark, username, password)
+        data_management_executed = True
+
+        print("Training the models...")
+        data_analysis_pipeline(spark)
+        data_analysis_executed = True
+
+        print("Generating prediction...")
+        runtime_classifier_pipeline(spark, aircraftid, date, username, password)
+
+    else:
+        raise ValueError("Invalida choice. Please select a valid pipeline option")
+    
+    
 
 if __name__ == "__main__":
     main()

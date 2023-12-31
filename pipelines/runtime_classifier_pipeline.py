@@ -63,9 +63,14 @@ def get_sensor_data(session: SparkSession, aircraft_id: str, date: str) -> DataF
 
     
     if aircraft_id is None or date is None:
-        raise ValueError("Both aircraft_id and date must be provided when single is True.")
+        raise ValueError("Both aircraft_id and date must be provided")
         
     df = df.where((df.aircraftid == aircraft_id) & (df.date == date))
+    
+    if df.isEmpty():
+        raise ValueError("No aircraftid or date found matching the input new rercord")
+
+
     df = df.groupBy("date", "aircraftid").agg(mean("value").alias("sensor_mean_value"))
     
     return df
