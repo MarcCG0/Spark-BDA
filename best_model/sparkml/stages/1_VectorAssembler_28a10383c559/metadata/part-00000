@@ -1,1 +1,0 @@
-{"class":"org.apache.spark.ml.feature.VectorAssembler","timestamp":1702815478286,"sparkVersion":"3.4.0","uid":"VectorAssembler_28a10383c559","paramMap":{"outputCol":"features","inputCols":["sensor_mean_value","flighthours","delayedminutes","flightcycles"]},"defaultParamMap":{"outputCol":"VectorAssembler_28a10383c559__output","handleInvalid":"error"}}
