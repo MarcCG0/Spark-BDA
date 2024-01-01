@@ -46,8 +46,8 @@ def main():
     variable_value = os.environ.get("USERNAME_BDA")
 
     if variable_value is None: 
-        raise ValueError("USERNAME_BDA and PASSWORD_BDA environment variables must be specified before running the program.\n"
-                         "Please modify the set.sh file with your credentials and run the 'source ./set.sh' command to set them automatically.")        
+        raise ValueError(f"{Colors.RED}USERNAME_BDA and PASSWORD_BDA environment variables must be specified before running the program.\n"
+                         f"Please modify the {Colors.YELLOW}set.sh {Colors.RED}file with your credentials and run the {Colors.YELLOW}'source ./set.sh'{Colors.RED} command to set them automatically.{Colors.RESET}")        
 
     username = os.environ['USERNAME_BDA']
     password = os.environ['PASSWORD_BDA']

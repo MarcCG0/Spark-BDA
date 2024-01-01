@@ -4,7 +4,7 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.ml.classification import DecisionTreeClassifier, RandomForestClassifier, LogisticRegression, GBTClassifier, LinearSVC, NaiveBayes
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 import mlflow
-from typing import Tuple, List, Any
+from typing import Tuple, List, Any, Optional
 from utils import Colors
 
 
@@ -48,7 +48,7 @@ def def_classifiers_and_evaluator() -> Tuple[List[Tuple[Any,Any]], MulticlassCla
 
 
 
-def train(train_data: DataFrame, validation_data: DataFrame, classifiers: List[Tuple[Any,Any]], evaluator: MulticlassClassificationEvaluator) -> Tuple[str, float, PipelineModel | None]:
+def train(train_data: DataFrame, validation_data: DataFrame, classifiers: List[Tuple[Any,Any]], evaluator: MulticlassClassificationEvaluator) -> Tuple[str, float, Optional[PipelineModel]]:
     """Train different classification models to find the one that better fits the matrix data."""
 
     best_model_name = ""
