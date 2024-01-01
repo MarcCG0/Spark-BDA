@@ -1,4 +1,4 @@
-import os
+import os, sys
 
 from data_analysis_pipeline import data_analysis_pipeline
 from data_management_pipeline import data_management_pipeline
@@ -7,18 +7,18 @@ from pyspark.sql import DataFrame, SparkSession
 from runtime_classifier_pipeline import runtime_classifier_pipeline
 from utils import Colors
 
-# HADOOP_HOME = "./resources/hadoop_home"
-# PYSPARK_PYTHON = "python3.9"
-# PYSPARK_DRIVER_PYTHON = "python3.9"
+HADOOP_HOME = "./resources/hadoop_home"
+PYSPARK_PYTHON = "python3"
+PYSPARK_DRIVER_PYTHON = "python3"
 POSTGRESQL_DRIVER_PATH = "./resources/postgresql-42.2.8.jar"
 
 
 def create_session() -> SparkSession:
     """Initialize the SparkSession"""
-    # os.environ["HADOOP_HOME"] = HADOOP_HOME
-    # sys.path.append(HADOOP_HOME + "\\bin")
-    # os.environ["PYSPARK_PYTHON"] = PYSPARK_PYTHON
-    # os.environ["PYSPARK_DRIVER_PYTHON"] = PYSPARK_DRIVER_PYTHON
+    os.environ["HADOOP_HOME"] = HADOOP_HOME
+    sys.path.append(HADOOP_HOME + "\\bin")
+    os.environ["PYSPARK_PYTHON"] = PYSPARK_PYTHON
+    os.environ["PYSPARK_DRIVER_PYTHON"] = PYSPARK_DRIVER_PYTHON
 
     conf: SparkConf = (
         SparkConf()

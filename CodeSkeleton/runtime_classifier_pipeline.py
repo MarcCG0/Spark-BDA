@@ -1,3 +1,5 @@
+from typing import List
+
 import mlflow
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import input_file_name, mean, regexp_extract, to_date
@@ -23,7 +25,7 @@ def retrieve_dw_table(
     table_instance: str,
     session: SparkSession,
     table_name: str,
-    columns: list[str],
+    columns: List[str],
     username: str,
     password: str,
 ) -> DataFrame:
@@ -84,17 +86,6 @@ def get_sensor_data(session: SparkSession, aircraft_id: str, date: str) -> DataF
 
     return df
 
-
-# def get_sensor_data(session: SparkSession, sensor_data: DataFrame, aircraft_id: str, date: str) -> DataFrame:
-#     """Returns a DataFrame that contains the mean values of the sensor for a given aircraftid and date."""
-
-#     if aircraft_id is None or date is None:
-#         raise ValueError("Both aircraft_id and date must be provided when single is True.")
-
-#     df = sensor_data.where((sensor_data.aircraftid == aircraft_id) & (sensor_data.date == date))
-#     df = df.groupBy("date", "aircraftid").agg(mean("value").alias("sensor_mean_value"))
-
-#     return df
 
 
 def prepare_data_before_prediction(
@@ -181,7 +172,6 @@ def runtime_classifier_pipeline(
     tuple_to_predict = prepare_data_before_prediction(
         filtered_sensor_data, aircraft_utilization, aircraftid, date
     )
-
     # Get the best model saved
     model_path = "./best_model"
     best_model = mlflow.spark.load_model(model_path)

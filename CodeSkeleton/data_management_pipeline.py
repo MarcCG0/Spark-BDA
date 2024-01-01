@@ -1,3 +1,5 @@
+from typing import List
+
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import (
     col,
@@ -33,7 +35,7 @@ def retrieve_dw_table(
     table_instance: str,
     session: SparkSession,
     table_name: str,
-    columns: list[str],
+    columns: List[str],
     username: str,
     password: str,
 ) -> DataFrame:
