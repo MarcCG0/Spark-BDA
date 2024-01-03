@@ -13,6 +13,8 @@ from pyspark.ml.classification import (
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql.types import StructType, StructField, StringType, DoubleType
+
 from utils import Colors
 
 ###############################################################################
@@ -28,6 +30,7 @@ from utils import Colors
 #           - Fit the model
 #           - Evaluate predictions
 #           - Store the model (name, parameters and metrics)
+#   - Rank all the models by F1-Score
 #   - Save the best model
 #
 ###############################################################################
@@ -69,14 +72,22 @@ def def_classifiers_and_evaluator() -> (
 
 
 def train(
+    spark: SparkSession,
     train_data: DataFrame,
     validation_data: DataFrame,
     classifiers: List[Tuple[Any, Any]],
     evaluator: MulticlassClassificationEvaluator,
-) -> Tuple[str, float, Optional[PipelineModel]]:
+) -> Tuple[DataFrame, Optional[PipelineModel]]:
     """Train different classification models to find the one that better fits the matrix data."""
 
-    best_model_name = ""
+    schema = StructType([
+                        StructField("Model", StringType(), True),
+                        StructField("F1-Score", DoubleType(), True),
+                        StructField("Accuracy", DoubleType(), True)
+            ])
+    
+    models: DataFrame = spark.createDataFrame([], schema=schema)
+
     best_f1_score = 0.0
     best_model = None
 
@@ -100,8 +111,12 @@ def train(
         model = pipeline.fit(train_data)
         predictions = model.transform(validation_data)
         f1_score = evaluator.evaluate(predictions)
+        # accuracy = evaluator.evaluate(predictions, {evaluator.metricName:"accuracy"})
 
-        print(f"{Colors.GREEN}{name} F1-Score: {f1_score}{Colors.RESET}")
+        print(f"{Colors.GREEN}{name} trained{Colors.RESET}")
+        
+        # Store the model and the scores in a dataframe
+        models = models.union(spark.createDataFrame([(name, f1_score)], schema=schema))
 
         # Log parameters, metrics, and model
         mlflow.log_param(f"{name} parameters", str(model.stages[-1].extractParamMap()))
@@ -112,11 +127,10 @@ def train(
 
         # Update best model if necessary
         if f1_score > best_f1_score:
-            best_model_name = name
             best_f1_score = f1_score
             best_model = model
 
-    return best_model_name, best_f1_score, best_model
+    return models, best_model
 
 
 ###############################
@@ -134,17 +148,21 @@ def data_analysis_pipeline(spark: SparkSession):
     training_data = training_data.drop("date", "aircraftid")
 
     # Split data from the matrix into train and validation sets
-    (train_data, validation_data) = training_data.randomSplit([0.8, 0.20], seed=123)
+    (train_data, validation_data) = training_data.randomSplit([0.8, 0.2], seed=123)
 
     # Define classification models and evaluation function that will be used
     classifiers, evaluator = def_classifiers_and_evaluator()
 
     # Train different models to find the best one and store them in a folder
     with mlflow.start_run(run_name="Model Training Run"):
-        best_model_name, best_f1_score, best_model = train(
-            train_data, validation_data, classifiers, evaluator
+        models, best_model = train(
+            spark, train_data, validation_data, classifiers, evaluator
         )
         mlflow.end_run()
+
+    # Rank the models by f1-score
+    models = models.orderBy("F1-Score", ascending=False)
+    models.show()
 
     # Save the best model
     mlflow.spark.save_model(best_model, "./best_model")

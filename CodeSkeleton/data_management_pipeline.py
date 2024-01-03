@@ -117,7 +117,7 @@ def get_training_data(
     condition = (
         (joined_df.aircraftid == operation_interruption.aircraftregistration)
         & (datediff(operation_interruption.starttime, joined_df.date) >= 0)
-        & (datediff(operation_interruption.starttime, joined_df.date) <= 6)
+        & (datediff(operation_interruption.starttime, joined_df.date) <= 7)
     )
 
     # Join previous dataframes
