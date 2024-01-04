@@ -49,7 +49,9 @@ def def_classifiers_and_evaluator() -> (
             DecisionTreeClassifier(labelCol="label", featuresCol="features"),
             {
                 "maxDepth": [5, 10, 20],
-                "maxBins": [20, 40, 60, 120]
+                "maxBins": [20, 40, 60, 120],
+                "minInstancesPerNode": [1, 5, 10],
+                "minInfoGain": [0.0, 0.1, 0.2]
             }
         ),
         (
@@ -57,7 +59,9 @@ def def_classifiers_and_evaluator() -> (
             RandomForestClassifier(labelCol="label", featuresCol="features"),
             {
                 "numTrees": [10, 20, 30],
-                "maxDepth": [5, 10, 15]
+                "maxDepth": [5, 10, 15],
+                "featureSubsetStrategy": ["auto", "sqrt", "log2"],
+                "subsamplingRate": [0.8, 0.9, 1.0]
             }
         ),
         (
@@ -65,7 +69,8 @@ def def_classifiers_and_evaluator() -> (
             LogisticRegression(labelCol="label", featuresCol="features"),
             {
                 "maxIter": [10, 50, 100],
-                "regParam": [0.01, 0.1, 0.5]
+                "regParam": [0.01, 0.1, 0.5],
+                "elasticNetParam": [0.0, 0.5, 1.0],
             }
         ),
         (
@@ -73,25 +78,29 @@ def def_classifiers_and_evaluator() -> (
             GBTClassifier(labelCol="label", featuresCol="features"),
             {
                 "maxIter": [10, 20, 30],
-                "maxDepth": [3, 5, 7]
+                "maxDepth": [3, 5, 7],
+                "subsample": [0.8, 0.9, 1.0],
+                "minInstancesPerNode": [1, 5, 10]
             }
         ),
         (
-            "Linear SVC", 
+            "Linear SVC",
             LinearSVC(labelCol="label", featuresCol="features"),
             {
                 "maxIter": [10, 50, 100],
-                "regParam": [0.01, 0.1, 0.5]
+                "regParam": [0.01, 0.1, 0.5],
+                "tolerance": [1e-4, 1e-3, 1e-2]
             }
         ),
         (
             "Naive Bayes",
             NaiveBayes(labelCol="label", featuresCol="features"),
             {
-                "smoothing": [0.0, 1.0, 2.0]
+                "smoothing": [0.0, 1.0, 2.0],
             }
         )
     ]
+
 
     # Define and initialize evulation function
     evaluator = MulticlassClassificationEvaluator(
