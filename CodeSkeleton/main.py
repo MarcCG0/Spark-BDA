@@ -24,7 +24,7 @@ def create_session() -> SparkSession:
         SparkConf()
         .set("spark.master", "local")
         .set("spark.app.name", "DBALab")
-        .set("spark.driver.host", "127.0.0.1")
+        # .set("spark.driver.host", "127.0.0.1")
         .set("spark.jars", POSTGRESQL_DRIVER_PATH)
     )
     spark: SparkSession = SparkSession.builder.config(conf=conf).getOrCreate()

@@ -14,6 +14,7 @@ from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 from pyspark.ml.feature import VectorAssembler
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.types import StructType, StructField, StringType, DoubleType
+from pyspark.ml.tuning import ParamGridBuilder, CrossValidator
 
 from utils import Colors
 
@@ -46,21 +47,50 @@ def def_classifiers_and_evaluator() -> (
         (
             "Decision Tree",
             DecisionTreeClassifier(labelCol="label", featuresCol="features"),
+            {
+                "maxDepth": [5, 10, 20],
+                "maxBins": [20, 40, 60, 120]
+            }
         ),
         (
             "Random Forest",
             RandomForestClassifier(labelCol="label", featuresCol="features"),
+            {
+                "numTrees": [10, 20, 30],
+                "maxDepth": [5, 10, 15]
+            }
         ),
         (
             "Logistic Regression",
             LogisticRegression(labelCol="label", featuresCol="features"),
+            {
+                "maxIter": [10, 50, 100],
+                "regParam": [0.01, 0.1, 0.5]
+            }
         ),
         (
             "Gradient-Boosted Trees",
             GBTClassifier(labelCol="label", featuresCol="features"),
+            {
+                "maxIter": [10, 20, 30],
+                "maxDepth": [3, 5, 7]
+            }
         ),
-        ("Linear SVC", LinearSVC(labelCol="label", featuresCol="features")),
-        ("Naive Bayes", NaiveBayes(labelCol="label", featuresCol="features")),
+        (
+            "Linear SVC", 
+            LinearSVC(labelCol="label", featuresCol="features"),
+            {
+                "maxIter": [10, 50, 100],
+                "regParam": [0.01, 0.1, 0.5]
+            }
+        ),
+        (
+            "Naive Bayes",
+            NaiveBayes(labelCol="label", featuresCol="features"),
+            {
+                "smoothing": [0.0, 1.0, 2.0]
+            }
+        )
     ]
 
     # Define and initialize evulation function
@@ -82,10 +112,9 @@ def train(
 
     schema = StructType([
                         StructField("Model", StringType(), True),
-                        StructField("F1-Score", DoubleType(), True),
-                        StructField("Accuracy", DoubleType(), True)
-            ])
-    
+                        StructField("F1-Score", DoubleType(), True)
+                        ])
+
     models: DataFrame = spark.createDataFrame([], schema=schema)
 
     best_f1_score = 0.0
@@ -103,23 +132,40 @@ def train(
     )
 
     # Train and evaluate models
-    for name, classifier in classifiers:
+    for name, classifier, param_grid in classifiers:
         # Index the labels and assemble the features (convert them into a single vector)
         pipeline = Pipeline(stages=[assembler, classifier])
 
-        # Fit the model and evaluate the predictions
-        model = pipeline.fit(train_data)
+        # Define a parameter grid to search over
+        grid = ParamGridBuilder()
+        for param, values in param_grid.items():
+            grid.addGrid(classifier.getParam(param), values)
+
+        grid = grid.build()
+        # Cross validator
+        crossval = CrossValidator(estimator=pipeline,
+                                  estimatorParamMaps=grid,
+                                  evaluator=evaluator,
+                                  numFolds=3) 
+
+        # Run cross-validation, and choose the best set of parameters
+        cvmodel = crossval.fit(train_data)
+        model = cvmodel.bestModel
+
+        # Evaluate the model with validation data
         predictions = model.transform(validation_data)
         f1_score = evaluator.evaluate(predictions)
         # accuracy = evaluator.evaluate(predictions, {evaluator.metricName:"accuracy"})
 
         print(f"{Colors.GREEN}{name} trained{Colors.RESET}")
-        
+
         # Store the model and the scores in a dataframe
-        models = models.union(spark.createDataFrame([(name, f1_score)], schema=schema))
+        models = models.union(spark.createDataFrame(
+            [(name, f1_score)], schema=schema))
 
         # Log parameters, metrics, and model
-        mlflow.log_param(f"{name} parameters", str(model.stages[-1].extractParamMap()))
+        mlflow.log_param(f"{name} parameters", str(
+            model.stages[-1].extractParamMap()))
         mlflow.log_metric(f"{name} F1-Score", f1_score)
         mlflow.spark.log_model(model, f"{name} model")
 
@@ -148,7 +194,8 @@ def data_analysis_pipeline(spark: SparkSession):
     training_data = training_data.drop("date", "aircraftid")
 
     # Split data from the matrix into train and validation sets
-    (train_data, validation_data) = training_data.randomSplit([0.8, 0.2], seed=123)
+    (train_data, validation_data) = training_data.randomSplit(
+        [0.7, 0.3], seed=123)
 
     # Define classification models and evaluation function that will be used
     classifiers, evaluator = def_classifiers_and_evaluator()
