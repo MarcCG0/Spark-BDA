@@ -129,6 +129,7 @@ def get_training_data(
         "label", col("starttime").isNotNull().cast("int")
     )
 
+    # Delete the unnecessary columns 
     joined_df_with_interruption = joined_df_with_interruption.drop(
         "starttime", "subsystem", "aircraftregistration", "timeid"
     )
