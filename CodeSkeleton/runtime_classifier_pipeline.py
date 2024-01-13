@@ -1,9 +1,9 @@
-from typing import List
+from typing import List, Optional
 
 import mlflow
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import input_file_name, mean, regexp_extract, to_date
-from utils import Colors
+from pyspark.sql.functions import input_file_name, mean, regexp_extract, to_date, round
+from utils import Colors, retrieve_dw_table
 
 ###############################################################################
 #
@@ -19,43 +19,6 @@ from utils import Colors
 #
 ###############################################################################
 
-
-def retrieve_dw_table(
-    db_name: str,
-    table_instance: str,
-    session: SparkSession,
-    table_name: str,
-    columns: List[str],
-    username: str,
-    password: str,
-) -> DataFrame:
-    """Given a database name, a table instance, a spark session,
-    the name for the table you want to retrieve from the database
-    and the columns you want to retrieve from that table, retrieves
-    the those tables for performing the data management
-    to obtain our matrix for training
-    """
-
-    db_properties = {
-        "driver": "org.postgresql.Driver",
-        "url": f"jdbc:postgresql://postgresfib.fib.upc.edu:6433/{db_name}?sslmode=require",
-        "user": username,
-        "password": password,
-    }
-
-    try:
-        data = session.read.jdbc(
-            url=db_properties["url"],
-            table=table_instance + "." + table_name,
-            properties=db_properties,
-        )
-    except ValueError:
-        raise ValueError(
-            f"{Colors.RED}Failed to retrieve {table_name} table.{Colors.RESET}"
-        )
-
-    df = data.select(columns)
-    return df
 
 
 def get_sensor_data(session: SparkSession, aircraft_id: str, date: str) -> DataFrame:
@@ -82,7 +45,7 @@ def get_sensor_data(session: SparkSession, aircraft_id: str, date: str) -> DataF
             f"{Colors.RED}No tuple for the combination of date-aircraftid given by the user found in the database{Colors.RESET}"
         )
 
-    df = df.groupBy("date", "aircraftid").agg(mean("value").alias("sensor_mean_value"))
+    df = df.groupBy("date", "aircraftid").agg(round(mean("value"), 2).alias("sensor_mean_value"))
 
     return df
 
@@ -150,21 +113,26 @@ def runtime_classifier_pipeline(
 ):
     """Compute all the Run-Time Classifier Pipeline."""
 
-    # Read the needed DW table and CSV files
-    aircraft_utilization = retrieve_dw_table(
-        "DW",
-        "public",
-        spark,
-        "aircraftutilization",
-        [
+    columns = [
             "timeid",
             "aircraftid",
-            "flighthours",
-            "delayedminutes",
-            "flightcycles",
-        ],
-        username,
-        password,
+            "CAST(ROUND(flighthours, 2) AS DECIMAL(10,2)) as flighthours",
+            "CAST(ROUND(delayedminutes, 2) AS DECIMAL(10,2)) as delayedminutes",
+            "CAST(ROUND(flightcycles, 2) AS DECIMAL(10,2)) as flightcycles"
+        ]
+    table_instance = "public"
+
+    table_name = "aircraftutilization"
+
+    query = f"SELECT {', '.join(columns)} FROM {table_instance}.{table_name} WHERE aircraftid = '{aircraftid}' AND timeid = '{date}'"
+
+    # Read the needed DW table and CSV files
+    aircraft_utilization = retrieve_dw_table(
+        db_name="DW",
+        session=spark,
+        username=username,
+        password=password,
+        query=query,
     )
     filtered_sensor_data = get_sensor_data(spark, aircraftid, date)
 

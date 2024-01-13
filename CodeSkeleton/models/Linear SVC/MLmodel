@@ -12,6 +12,6 @@ flavors:
     model_data: sparkml
     pyspark_version: 3.5.0
 mlflow_version: 2.9.2
-model_size_bytes: 15928
-model_uuid: 9d4f5912eb374e89b509b85286d81ee6
-utc_time_created: '2023-12-31 17:36:42.805766'
+model_size_bytes: 31154
+model_uuid: 9fa88233b169426e9cb1fd218160f3c1
+utc_time_created: '2024-01-13 22:48:23.669169'

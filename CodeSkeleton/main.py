@@ -61,7 +61,7 @@ def main():
     # Create spark session
     spark: SparkSession = create_session()
 
-    data_path = "./results/training_data.csv"
+    data_path = "./results/training_data"
     best_model_path = "./best_model"
 
     while True:

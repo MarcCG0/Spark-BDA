@@ -50,8 +50,6 @@ def def_classifiers_and_evaluator() -> (
             {
                 "maxDepth": [5, 10, 20],
                 "maxBins": [20, 40, 60, 120],
-                "minInstancesPerNode": [1, 5, 10],
-                "minInfoGain": [0.0, 0.1, 0.2]
             }
         ),
         (
@@ -60,8 +58,6 @@ def def_classifiers_and_evaluator() -> (
             {
                 "numTrees": [10, 20, 30],
                 "maxDepth": [5, 10, 15],
-                "featureSubsetStrategy": ["auto", "sqrt", "log2"],
-                "subsamplingRate": [0.8, 0.9, 1.0]
             }
         ),
         (
@@ -70,7 +66,6 @@ def def_classifiers_and_evaluator() -> (
             {
                 "maxIter": [10, 50, 100],
                 "regParam": [0.01, 0.1, 0.5],
-                "elasticNetParam": [0.0, 0.5, 1.0],
             }
         ),
         (
@@ -79,8 +74,6 @@ def def_classifiers_and_evaluator() -> (
             {
                 "maxIter": [10, 20, 30],
                 "maxDepth": [3, 5, 7],
-                "subsample": [0.8, 0.9, 1.0],
-                "minInstancesPerNode": [1, 5, 10]
             }
         ),
         (
@@ -89,7 +82,6 @@ def def_classifiers_and_evaluator() -> (
             {
                 "maxIter": [10, 50, 100],
                 "regParam": [0.01, 0.1, 0.5],
-                "tolerance": [1e-4, 1e-3, 1e-2]
             }
         ),
         (
@@ -198,13 +190,13 @@ def data_analysis_pipeline(spark: SparkSession):
 
     # Read the matrix computed in the data management pipeline
     training_data = spark.read.csv(
-        "./results/training_data.csv", header=True, inferSchema=True
+        "./results/training_data", header=True, inferSchema=True
     )
     training_data = training_data.drop("date", "aircraftid")
 
     # Split data from the matrix into train and validation sets
     (train_data, validation_data) = training_data.randomSplit(
-        [0.7, 0.3], seed=123)
+        [0.7, 0.3], seed=53838946)
 
     # Define classification models and evaluation function that will be used
     classifiers, evaluator = def_classifiers_and_evaluator()

@@ -8,8 +8,9 @@ from pyspark.sql.functions import (
     mean,
     regexp_extract,
     to_date,
+    round
 )
-from utils import Colors
+from utils import Colors, retrieve_dw_table
 
 ###############################################################################
 #
@@ -30,44 +31,6 @@ from utils import Colors
 ###############################################################################
 
 
-def retrieve_dw_table(
-    db_name: str,
-    table_instance: str,
-    session: SparkSession,
-    table_name: str,
-    columns: List[str],
-    username: str,
-    password: str,
-) -> DataFrame:
-    """Given a database name, a table instance, a spark session,
-    the name for the table you want to retrieve from the database
-    and the columns you want to retrieve from that table, retrieves
-    the those tables for performing the data management
-    to obtain our matrix for training
-    """
-
-    db_properties = {
-        "driver": "org.postgresql.Driver",
-        "url": f"jdbc:postgresql://postgresfib.fib.upc.edu:6433/{db_name}?sslmode=require",
-        "user": username,
-        "password": password,
-    }
-
-    try:
-        data = session.read.jdbc(
-            url=db_properties["url"],
-            table=table_instance + "." + table_name,
-            properties=db_properties,
-        )
-    except ValueError:
-        raise ValueError(
-            f"{Colors.RED}Failed to retrieve {table_name} table.{Colors.RESET}"
-        )
-
-    df = data.select(columns)
-    return df
-
-
 def get_sensor_data(
     session: SparkSession,
 ) -> DataFrame:
@@ -83,7 +46,7 @@ def get_sensor_data(
         regexp_extract(input_file_name(), pattern, 1).substr(-6, 6),
     )
 
-    df = df.groupBy("date", "aircraftid").agg(mean("value").alias("sensor_mean_value"))
+    df = df.groupBy("date", "aircraftid").agg(round(mean("value"), 2).alias("sensor_mean_value"))
 
     return df
 
@@ -148,30 +111,42 @@ def data_management_pipeline(spark: SparkSession, username: str, password: str):
     # Read csv files
     sensor_data: DataFrame = get_sensor_data(spark)
 
-    # Read DW and AMOS needed tables
-    aircraft_utilization = retrieve_dw_table(
-        "DW",
-        "public",
-        spark,
-        "aircraftutilization",
-        [
+    columns = [
             "timeid",
             "aircraftid",
-            "flighthours",
-            "delayedminutes",
-            "flightcycles",
-        ],
-        username,
-        password,
+            "CAST(ROUND(flighthours, 2) AS DECIMAL(10,2)) as flighthours",
+            "CAST(ROUND(delayedminutes, 2) AS DECIMAL(10,2)) as delayedminutes",
+            "CAST(ROUND(flightcycles, 2) AS DECIMAL(10,2)) as flightcycles"
+        ]
+    table_instance = "public"
+    table_name = "aircraftutilization"
+
+    query = f"SELECT {', '.join(columns)} FROM {table_instance}.{table_name}"
+
+    # Read DW and AMOS needed tables
+    aircraft_utilization = retrieve_dw_table(
+        db_name="DW",
+        session=spark,
+        username=username,
+        password=password,
+        query=query,
     )
+
+    columns = ["subsystem",
+               "aircraftregistration",
+               "starttime"
+            ]
+    table_instance = "oldinstance"
+    table_name = "operationinterruption"
+
+    query = f"SELECT {', '.join(columns)} FROM {table_instance}.{table_name}"
+
     operation_interruption = retrieve_dw_table(
-        "AMOS",
-        "oldinstance",
-        spark,
-        "operationinterruption",
-        ["subsystem", "aircraftregistration", "starttime"],
-        username,
-        password,
+        db_name="AMOS",
+        session=spark,
+        username=username,
+        password=password,
+        query=query,
     )
 
     # Create a matrix with all needed data
@@ -180,5 +155,5 @@ def data_management_pipeline(spark: SparkSession, username: str, password: str):
     )
 
     # Save the matrix in a csv file
-    output_path = "./results/training_data.csv"
+    output_path = "./results/training_data"
     training_data.coalesce(1).write.csv(output_path, header=True, mode="overwrite")

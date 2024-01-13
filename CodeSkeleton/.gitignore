@@ -1,3 +1,5 @@
 *~
 mlruns/
 __pychache
+models/
+best_model/
