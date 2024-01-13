@@ -1,9 +1,10 @@
-from typing import List, Optional
+from typing import Any
 
 import mlflow
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import input_file_name, mean, regexp_extract, to_date, round
-from utils import Colors, retrieve_dw_table
+from pyspark.sql.functions import mean, round
+
+from utils import Colors, concatenate_csv_sensor_data, retrieve_dw_table
 
 ###############################################################################
 #
@@ -20,23 +21,10 @@ from utils import Colors, retrieve_dw_table
 ###############################################################################
 
 
-
 def get_sensor_data(session: SparkSession, aircraft_id: str, date: str) -> DataFrame:
     """Returns a DataFrame that contains the mean values of the sensor for a given aircraftid and date."""
 
-    path_to_csv_files = "./resources/trainingData/*.csv"
-    df = session.read.csv(path_to_csv_files, header=True, inferSchema=True, sep=";")
-    pattern = r".*\/([^\/]*)\.csv$"
-    df = df.withColumn("date", to_date(df["date"]))
-    df = df.withColumn(
-        "aircraftid",
-        regexp_extract(input_file_name(), pattern, 1).substr(-6, 6),
-    )
-
-    if aircraft_id is None or date is None:
-        raise ValueError(
-            f"{Colors.RED}Both aircraft_id and date must be provided{Colors.RESET}"
-        )
+    df: DataFrame = concatenate_csv_sensor_data(session=session)
 
     df = df.where((df.aircraftid == aircraft_id) & (df.date == date))
 
@@ -45,10 +33,11 @@ def get_sensor_data(session: SparkSession, aircraft_id: str, date: str) -> DataF
             f"{Colors.RED}No tuple for the combination of date-aircraftid given by the user found in the database{Colors.RESET}"
         )
 
-    df = df.groupBy("date", "aircraftid").agg(round(mean("value"), 2).alias("sensor_mean_value"))
+    df = df.groupBy("date", "aircraftid").agg(
+        round(mean("value"), 2).alias("sensor_mean_value")
+    )
 
     return df
-
 
 
 def prepare_data_before_prediction(
@@ -70,7 +59,7 @@ def prepare_data_before_prediction(
     return joined_df
 
 
-def classifier_prediction(tuple_to_predict: DataFrame, best_model):
+def classifier_prediction(tuple_to_predict: DataFrame, best_model: Any):
     """Compute the prediction value for the given aircraftid and date with the a given model"""
 
     predictions = best_model.transform(tuple_to_predict)
@@ -114,12 +103,12 @@ def runtime_classifier_pipeline(
     """Compute all the Run-Time Classifier Pipeline."""
 
     columns = [
-            "timeid",
-            "aircraftid",
-            "CAST(ROUND(flighthours, 2) AS DECIMAL(10,2)) as flighthours",
-            "CAST(ROUND(delayedminutes, 2) AS DECIMAL(10,2)) as delayedminutes",
-            "CAST(ROUND(flightcycles, 2) AS DECIMAL(10,2)) as flightcycles"
-        ]
+        "timeid",
+        "aircraftid",
+        "CAST(ROUND(flighthours, 2) AS DECIMAL(10,2)) as flighthours",
+        "CAST(ROUND(delayedminutes, 2) AS DECIMAL(10,2)) as delayedminutes",
+        "CAST(ROUND(flightcycles, 2) AS DECIMAL(10,2)) as flightcycles",
+    ]
     table_instance = "public"
 
     table_name = "aircraftutilization"

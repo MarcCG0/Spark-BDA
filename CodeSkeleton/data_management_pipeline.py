@@ -1,16 +1,7 @@
-from typing import List
-
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import (
-    col,
-    datediff,
-    input_file_name,
-    mean,
-    regexp_extract,
-    to_date,
-    round
-)
-from utils import Colors, retrieve_dw_table
+from pyspark.sql.functions import col, datediff, mean, round, to_date
+
+from utils import concatenate_csv_sensor_data, retrieve_dw_table
 
 ###############################################################################
 #
@@ -37,16 +28,11 @@ def get_sensor_data(
     """Returns a DataFrame that contains the csv file with the mean values
     of the sensor, the aircraftid and the date."""
 
-    path_to_csv_files = "./resources/trainingData/*.csv"
-    df = session.read.csv(path_to_csv_files, header=True, inferSchema=True, sep=";")
-    pattern = r".*\/([^\/]*)\.csv$"
-    df = df.withColumn("date", to_date(df["date"]))
-    df = df.withColumn(
-        "aircraftid",
-        regexp_extract(input_file_name(), pattern, 1).substr(-6, 6),
-    )
+    df: DataFrame = concatenate_csv_sensor_data(session=session)
 
-    df = df.groupBy("date", "aircraftid").agg(round(mean("value"), 2).alias("sensor_mean_value"))
+    df = df.groupBy("date", "aircraftid").agg(
+        round(mean("value"), 2).alias("sensor_mean_value")
+    )
 
     return df
 
@@ -92,7 +78,7 @@ def get_training_data(
         "label", col("starttime").isNotNull().cast("int")
     )
 
-    # Delete the unnecessary columns 
+    # Delete the unnecessary columns
     joined_df_with_interruption = joined_df_with_interruption.drop(
         "starttime", "subsystem", "aircraftregistration", "timeid"
     )
@@ -112,12 +98,12 @@ def data_management_pipeline(spark: SparkSession, username: str, password: str):
     sensor_data: DataFrame = get_sensor_data(spark)
 
     columns = [
-            "timeid",
-            "aircraftid",
-            "CAST(ROUND(flighthours, 2) AS DECIMAL(10,2)) as flighthours",
-            "CAST(ROUND(delayedminutes, 2) AS DECIMAL(10,2)) as delayedminutes",
-            "CAST(ROUND(flightcycles, 2) AS DECIMAL(10,2)) as flightcycles"
-        ]
+        "timeid",
+        "aircraftid",
+        "CAST(ROUND(flighthours, 2) AS DECIMAL(10,2)) as flighthours",
+        "CAST(ROUND(delayedminutes, 2) AS DECIMAL(10,2)) as delayedminutes",
+        "CAST(ROUND(flightcycles, 2) AS DECIMAL(10,2)) as flightcycles",
+    ]
     table_instance = "public"
     table_name = "aircraftutilization"
 
@@ -132,10 +118,7 @@ def data_management_pipeline(spark: SparkSession, username: str, password: str):
         query=query,
     )
 
-    columns = ["subsystem",
-               "aircraftregistration",
-               "starttime"
-            ]
+    columns = ["subsystem", "aircraftregistration", "starttime"]
     table_instance = "oldinstance"
     table_name = "operationinterruption"
 

@@ -1,9 +1,11 @@
-import os, sys
+import os
+import sys
+
+from pyspark import SparkConf
+from pyspark.sql import SparkSession
 
 from data_analysis_pipeline import data_analysis_pipeline
 from data_management_pipeline import data_management_pipeline
-from pyspark import SparkConf
-from pyspark.sql import DataFrame, SparkSession
 from runtime_classifier_pipeline import runtime_classifier_pipeline
 from utils import Colors
 
@@ -29,19 +31,6 @@ def create_session() -> SparkSession:
     )
     spark: SparkSession = SparkSession.builder.config(conf=conf).getOrCreate()
     return spark
-
-
-def set_env_variable(variable_name: str, variable_value: str):
-    # Determine the shell profile file based on the user's shell
-    shell = os.path.basename(os.environ.get("SHELL"))
-    if shell == "zsh":
-        profile_path = os.path.expanduser("~/.zshrc")
-    else:
-        profile_path = os.path.expanduser("~/.bash_profile")
-
-    # Append the export command to the profile file
-    with open(profile_path, "a") as profile_file:
-        profile_file.write(f"\nexport {variable_name}='{variable_value}'\n")
 
 
 def main():

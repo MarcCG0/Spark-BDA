@@ -1,15 +1,21 @@
-from typing import List 
 from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql.functions import input_file_name, regexp_extract, to_date
 
 ###############################################################################
 #
 # Utils:
 #
-#   - This file contains elements that are used all over the project, that is utils. 
+#   - This file contains elements that are used all over the project, that is utils.
 #
 ###############################################################################
 
+
 class Colors:
+    """
+    Class that represents the colors for the logs
+    of the project.
+    """
+
     RED = "\033[31m"
     GREEN = "\033[32m"
     YELLOW = "\033[33m"
@@ -39,7 +45,7 @@ def retrieve_dw_table(
         "user": username,
         "password": password,
     }
-    
+
     try:
         table = f"({query}) AS temp_table"
         data = session.read.jdbc(
@@ -50,8 +56,24 @@ def retrieve_dw_table(
     except Exception:
         error_message = f"{Colors.RED}Error occurred while executing JDBC query, check the error provided by Spark.{Colors.RESET}"
         raise Exception(error_message)
-    
+
     return data
 
 
-
+def concatenate_csv_sensor_data(session: SparkSession) -> DataFrame:
+    """
+    This function concatenates and parses the csv's containing the
+    sensor data in order to proceed with averaging its values in
+    posterior steps.
+    Note: the value for aircraft id is parsed directly from the csv
+    file name.
+    """
+    path_to_csv_files = "./resources/trainingData/*.csv"
+    df = session.read.csv(path_to_csv_files, header=True, inferSchema=True, sep=";")
+    pattern = r".*\/([^\/]*)\.csv$"
+    df = df.withColumn("date", to_date(df["date"]))
+    df = df.withColumn(
+        "aircraftid",
+        regexp_extract(input_file_name(), pattern, 1).substr(-6, 6),
+    )
+    return df
