@@ -60,7 +60,8 @@ def get_training_data(
         "starttime", to_date(operation_interruption.starttime)
     )
     operation_interruption = operation_interruption.filter(
-        operation_interruption.subsystem == 3453
+        (operation_interruption.subsystem == 3453) &
+        (operation_interruption.kind.isin(['AircraftOnGround', 'Safety', 'Delay']))
     )
 
     condition = (
@@ -118,7 +119,7 @@ def data_management_pipeline(spark: SparkSession, username: str, password: str):
         query=query,
     )
 
-    columns = ["subsystem", "aircraftregistration", "starttime"]
+    columns = ["subsystem", "kind", "aircraftregistration", "starttime"]
     table_instance = "oldinstance"
     table_name = "operationinterruption"
 
@@ -139,4 +140,5 @@ def data_management_pipeline(spark: SparkSession, username: str, password: str):
 
     # Save the matrix in a csv file
     output_path = "./results/training_data"
-    training_data.coalesce(1).write.csv(output_path, header=True, mode="overwrite")
+    training_data.coalesce(1).write.csv(
+        output_path, header=True, mode="overwrite")
