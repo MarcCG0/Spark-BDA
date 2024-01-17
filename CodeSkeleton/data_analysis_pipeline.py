@@ -188,7 +188,7 @@ def data_analysis_pipeline(spark: SparkSession):
 
     # Read the matrix computed in the data management pipeline
     training_data = spark.read.csv(
-        "./results/training_data", header=True, inferSchema=True
+        "./training_data", header=True, inferSchema=True
     )
     training_data = training_data.drop("date", "aircraftid")
 

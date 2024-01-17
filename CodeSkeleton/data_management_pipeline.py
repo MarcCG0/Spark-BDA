@@ -1,7 +1,16 @@
-from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import col, datediff, mean, round, to_date
+from typing import List, Optional
 
-from utils import concatenate_csv_sensor_data, retrieve_dw_table
+from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql.functions import (
+    col,
+    datediff,
+    input_file_name,
+    mean,
+    regexp_extract,
+    to_date,
+    round
+)
+from utils import Colors
 
 ###############################################################################
 #
@@ -22,29 +31,78 @@ from utils import concatenate_csv_sensor_data, retrieve_dw_table
 ###############################################################################
 
 
+def retrieve_dw_table(
+    db_name: str,
+    table_instance: str,
+    session: SparkSession,
+    table_name: str,
+    columns: List[str],
+    username: str,
+    password: str,
+) -> DataFrame:
+    """Given a database name, a table instance, a spark session,
+    the name for the table you want to retrieve from the database
+    and the columns you want to retrieve from that table, retrieves
+    the those tables for performing the data management
+    to obtain our matrix for training
+    """
+
+    db_properties = {
+        "driver": "org.postgresql.Driver",
+        "url": f"jdbc:postgresql://postgresfib.fib.upc.edu:6433/{db_name}?sslmode=require",
+        "user": username,
+        "password": password,
+    }
+
+    try:
+        data = session.read.jdbc(
+            url=db_properties["url"],
+            table=table_instance + "." + table_name,
+            properties=db_properties,
+        )
+    except ValueError:
+        raise ValueError(
+            f"{Colors.RED}Failed to retrieve {table_name} table.{Colors.RESET}"
+        )
+
+    df = data.select(columns)
+    return df
+
+
 def get_sensor_data(
     session: SparkSession,
 ) -> DataFrame:
     """Returns a DataFrame that contains the csv file with the mean values
     of the sensor, the aircraftid and the date."""
 
-    df: DataFrame = concatenate_csv_sensor_data(session=session)
-
-    df = df.groupBy("date", "aircraftid").agg(
-        round(mean("value"), 2).alias("sensor_mean_value")
+    path_to_csv_files = "./resources/trainingData/*.csv"
+    df = session.read.csv(path_to_csv_files, header=True, inferSchema=True, sep=";")
+    pattern = r".*\/([^\/]*)\.csv$"
+    df = df.withColumn("date", to_date(df["date"]))
+    df = df.withColumn(
+        "aircraftid",
+        regexp_extract(input_file_name(), pattern, 1).substr(-6, 6),
     )
 
+    df = df.groupBy("date", "aircraftid").agg(mean("value").alias("sensor_mean_value"))
+
     return df
+
 
 
 def get_training_data(
     sensor_data: DataFrame,
     operation_interruption: DataFrame,
     aircraft_utilization: DataFrame,
+    aircraftid: Optional[str],
+    date: Optional[str], 
 ) -> DataFrame:
     """Performs the necessary transformations needed
     for obtaining the training data matrix
     """
+    if aircraftid is not None and date is not None: 
+        sensor_data=sensor_data.where((sensor_data.date==date)&(sensor_data.aircraftid==aircraftid))
+        aircraft_utilization=aircraft_utilization.where((aircraft_utilization.timeid==date)&(aircraft_utilization.aircraftid==aircraftid))
 
     # Join sensor data with aircraftutilization table from DW
     joined_df = sensor_data.join(
@@ -55,36 +113,44 @@ def get_training_data(
     )
     joined_df = joined_df.drop(aircraft_utilization.aircraftid)
 
-    # Filter needed rows from operationinterruption table
-    operation_interruption = operation_interruption.withColumn(
-        "starttime", to_date(operation_interruption.starttime)
-    )
-    operation_interruption = operation_interruption.filter(
-        (operation_interruption.subsystem == 3453) &
-        (operation_interruption.kind.isin(['AircraftOnGround', 'Safety', 'Delay']))
-    )
+    if aircraftid is None and date is None: 
 
-    condition = (
-        (joined_df.aircraftid == operation_interruption.aircraftregistration)
-        & (datediff(operation_interruption.starttime, joined_df.date) >= 0)
-        & (datediff(operation_interruption.starttime, joined_df.date) <= 6)
-    )
+        # Filter needed rows from operationinterruption table
+        operation_interruption = operation_interruption.withColumn(
+            "starttime", to_date(operation_interruption.starttime)
+        )
+        operation_interruption = operation_interruption.filter(
+            (operation_interruption.subsystem == 3453)&
+            (operation_interruption.kind.isin(['AircraftOnGround', 'Safety', 'Delay' ]))
 
-    # Join previous dataframes
-    joined_df_with_interruption = joined_df.join(
-        operation_interruption, condition, "left_outer"
-    )
+        )
 
-    joined_df_with_interruption = joined_df_with_interruption.withColumn(
-        "label", col("starttime").isNotNull().cast("int")
-    )
+        condition = (
+            (joined_df.aircraftid == operation_interruption.aircraftregistration)
+            & (datediff(operation_interruption.starttime, joined_df.date) >= 0)
+            & (datediff(operation_interruption.starttime, joined_df.date) <= 6)
+        )
 
-    # Delete the unnecessary columns
-    joined_df_with_interruption = joined_df_with_interruption.drop(
-        "starttime", "subsystem", "aircraftregistration", "timeid"
-    )
+        # Join previous dataframes
+        joined_df_with_interruption = joined_df.join(
+            operation_interruption, condition, "left_outer"
+        )
 
-    return joined_df_with_interruption
+        joined_df_with_interruption = joined_df_with_interruption.withColumn(
+            "label", col("starttime").isNotNull().cast("int")
+        )
+
+        joined_df_with_interruption = joined_df_with_interruption.drop(
+            "starttime", "subsystem", "aircraftregistration", "timeid", "kind"
+        )
+        return joined_df_with_interruption
+    
+    else: 
+        
+        joined_df = joined_df.drop(
+            "timeid"
+        )
+        return joined_df
 
 
 #################################
@@ -92,53 +158,52 @@ def get_training_data(
 #################################
 
 
-def data_management_pipeline(spark: SparkSession, username: str, password: str):
+def data_management_pipeline(spark: SparkSession, username: str, password: str, aircraftid: Optional[str] = None, date: Optional[str] = None):
     """Compute all the data management pipeline."""
 
     # Read csv files
     sensor_data: DataFrame = get_sensor_data(spark)
 
-    columns = [
-        "timeid",
-        "aircraftid",
-        "CAST(ROUND(flighthours, 2) AS DECIMAL(10,2)) as flighthours",
-        "CAST(ROUND(delayedminutes, 2) AS DECIMAL(10,2)) as delayedminutes",
-        "CAST(ROUND(flightcycles, 2) AS DECIMAL(10,2)) as flightcycles",
-    ]
-    table_instance = "public"
-    table_name = "aircraftutilization"
-
-    query = f"SELECT {', '.join(columns)} FROM {table_instance}.{table_name}"
-
     # Read DW and AMOS needed tables
     aircraft_utilization = retrieve_dw_table(
-        db_name="DW",
-        session=spark,
-        username=username,
-        password=password,
-        query=query,
+        "DW",
+        "public",
+        spark,
+        "aircraftutilization",
+        [
+            "timeid",
+            "aircraftid",
+            "flighthours",
+            "delayedminutes",
+            "flightcycles",
+        ],
+        username,
+        password,
     )
-
-    columns = ["subsystem", "kind", "aircraftregistration", "starttime"]
-    table_instance = "oldinstance"
-    table_name = "operationinterruption"
-
-    query = f"SELECT {', '.join(columns)} FROM {table_instance}.{table_name}"
-
     operation_interruption = retrieve_dw_table(
-        db_name="AMOS",
-        session=spark,
-        username=username,
-        password=password,
-        query=query,
+        "AMOS",
+        "oldinstance",
+        spark,
+        "operationinterruption",
+        ["subsystem", "aircraftregistration", "starttime", "kind"],
+        username,
+        password,
     )
 
     # Create a matrix with all needed data
     training_data: DataFrame = get_training_data(
-        sensor_data, operation_interruption, aircraft_utilization
+        sensor_data, operation_interruption, aircraft_utilization, aircraftid, date
     )
 
+    columns_to_round = ['sensor_mean_value', 'flighthours', 'delayedminutes', 'flightcycles']
+
+    # Apply rounding to each column
+    for column in columns_to_round:
+        training_data = training_data.withColumn(column, round(training_data[column], 2))
+    
     # Save the matrix in a csv file
-    output_path = "./results/training_data"
-    training_data.coalesce(1).write.csv(
-        output_path, header=True, mode="overwrite")
+    if aircraftid is None and date is None: 
+        output_path = "./training_data"
+    else: 
+        output_path = "./tuple_to_predict"
+    training_data.coalesce(1).write.csv(output_path, header=True, mode="overwrite")
