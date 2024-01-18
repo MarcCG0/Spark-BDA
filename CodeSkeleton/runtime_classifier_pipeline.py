@@ -9,10 +9,11 @@ from data_management_pipeline import data_management_pipeline
 #
 # Run-Time Classifier Pipeline:
 #
-#   - Read DW aircraftutilization table
-#   - Read CSV files with the given aircraftid and date
-#   - Join sensor data with aircraftutilization table from DW to get
-#     the tuple to predict
+#   - Execute Data Management Pipeline:
+#         - Read DW aircraftutilization table and filter the aircraftid and date given
+#         - Read CSV files and filter the aircraftid and date given
+#         - Join sensor data with aircraftutilization table from DW to get
+#           the tuple to predict
 #   - Get the best model trained in the data analysis pipeline
 #   - Make the prediction
 #   - Print the predicted value
@@ -65,6 +66,7 @@ def runtime_classifier_pipeline(
 ):
     """Compute all the Run-Time Classifier Pipeline."""
 
+    # Execute data management pipeline to get the tuple to predict
     data_management_pipeline(spark=spark, username=username, password=password, aircraftid=aircraftid, date=date)
 
     # Get the best model saved
@@ -72,6 +74,7 @@ def runtime_classifier_pipeline(
     best_model = mlflow.spark.load_model(model_path)
     best_model_name = best_model.stages[-1].uid.split("_")[0]
 
+    # Load the tuple 
     tuple_to_predict = spark.read.csv(
         "./tuple_to_predict", header=True, inferSchema=True
     )

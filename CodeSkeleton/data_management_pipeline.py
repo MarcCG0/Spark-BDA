@@ -23,6 +23,7 @@ from utils import Colors
 #       conditions:
 #               - subsystem = 3453
 #               - Maintenance is predicted in the next 7 days for that flight
+#               - Maintenance kind = ['AircraftOnGround', 'Safety', 'Delay'] (unscheduled maintenance)
 #       )
 #   - Join previous resultant dataframe with filtered operationinterruption
 #     rows and store it in a matrix
@@ -100,6 +101,8 @@ def get_training_data(
     """Performs the necessary transformations needed
     for obtaining the training data matrix
     """
+
+    # If we want only a single row
     if aircraftid is not None and date is not None: 
         sensor_data=sensor_data.where((sensor_data.date==date)&(sensor_data.aircraftid==aircraftid))
         aircraft_utilization=aircraft_utilization.where((aircraft_utilization.timeid==date)&(aircraft_utilization.aircraftid==aircraftid))
@@ -113,6 +116,7 @@ def get_training_data(
     )
     joined_df = joined_df.drop(aircraft_utilization.aircraftid)
 
+    # If we want to do the whole data matrix
     if aircraftid is None and date is None: 
 
         # Filter needed rows from operationinterruption table
@@ -121,7 +125,7 @@ def get_training_data(
         )
         operation_interruption = operation_interruption.filter(
             (operation_interruption.subsystem == 3453)&
-            (operation_interruption.kind.isin(['AircraftOnGround', 'Safety', 'Delay' ]))
+            (operation_interruption.kind.isin(['AircraftOnGround', 'Safety', 'Delay']))
 
         )
 
